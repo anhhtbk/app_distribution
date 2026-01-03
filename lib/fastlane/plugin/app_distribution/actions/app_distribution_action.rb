@@ -13,22 +13,31 @@ module Fastlane
         token  = params[:token] || ENV["APP_DIST_TOKEN"]
         env = params[:env] || "production"
         platform = params[:platform] || "App"
+        send_icon = params[:send_icon].nil? ? true : params[:send_icon]
 
         app_id = params[:app_id]
         app_path = params[:app_path]
+        icon_path = params[:icon_path]
 
         # Get app info from pubspec.yaml
         flutter_info = get_flutter_app_info
         app_name = flutter_info[:name]
         app_version = flutter_info[:version]
 
+        # Auto-discover app icon if send_icon is enabled and icon_path not provided
+        if send_icon && (icon_path.nil? || icon_path.empty?)
+          icon_path = discover_app_icon(platform)
+        end
+
         UI.message("🔔 app_distribution started")
         UI.message("   app_name: #{app_name}")
         UI.message("   app_version: #{app_version}")
         UI.message("   app_id: #{app_id || '(nil)'}")
         UI.message("   app_path: #{app_path || '(auto-discover)'}")
+        UI.message("   icon_path: #{icon_path || '(not found)'}")
         UI.message("   server: #{server || '(nil)'}")
         UI.message("   platform: #{platform}")
+        UI.message("   send_icon: #{send_icon}")
         UI.message("   telegram_token: #{telegram_token ? 'SET' : 'NOT SET'}")
         UI.message("   telegram_chat: #{telegram_chat}")
 
@@ -65,12 +74,26 @@ module Fastlane
         # 2. Send to Telegram
         UI.message("📤 Sending to Telegram...")
         caption = "📦 #{app_name} v#{app_version}\n#{platform} • #{env}\n#{app_link}"
-        result = send_telegram_photo(
-          telegram_token,
-          telegram_chat,
-          qr_path,
-          caption
-        )
+
+        # Send with icon if available, otherwise just QR code
+        if icon_path && File.exist?(icon_path)
+          UI.message("🎨 Sending with app icon: #{icon_path}")
+          result = send_telegram_media_group(
+            telegram_token,
+            telegram_chat,
+            icon_path,
+            qr_path,
+            caption
+          )
+        else
+          UI.message("📷 Sending QR code only (no icon found)")
+          result = send_telegram_photo(
+            telegram_token,
+            telegram_chat,
+            qr_path,
+            caption
+          )
+        end
 
         # 3. Remove QR image after sending
         File.delete(qr_path) if File.exist?(qr_path)
@@ -210,6 +233,74 @@ module Fastlane
         nil
       end
 
+      def self.discover_app_icon(platform)
+        project_root = find_project_root
+
+        unless project_root
+          UI.warning("⚠️ Could not find project root for icon discovery")
+          return nil
+        end
+
+        UI.message("🔍 Auto-discovering app icon...")
+
+        # Priority order for Flutter app icons
+        icon_patterns = []
+
+        if platform.downcase == "ios"
+          # iOS app icon locations (Flutter)
+          icon_patterns = [
+            # Standard Flutter iOS icon locations
+            "#{project_root}/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png",
+            "#{project_root}/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-76x76@2x.png",
+            "#{project_root}/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-60x60@3x.png",
+            "#{project_root}/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-60x60@2x.png",
+            "#{project_root}/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@3x.png",
+            "#{project_root}/ios/Runner/Assets.xcassets/AppIcon.appiconset/*.png"
+          ]
+        else
+          # Android app icon locations (Flutter)
+          icon_patterns = [
+            # Adaptive icon foreground (preferred - usually higher quality)
+            "#{project_root}/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png",
+            "#{project_root}/android/app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png",
+            "#{project_root}/android/app/src/main/res/mipmap-xhdpi/ic_launcher_foreground.png",
+            # Standard launcher icon
+            "#{project_root}/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+            "#{project_root}/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+            "#{project_root}/android/app/src/main/res/mipmap-xhdpi/ic_launcher.png",
+            "#{project_root}/android/app/src/main/res/mipmap-hdpi/ic_launcher.png",
+            "#{project_root}/android/app/src/main/res/mipmap-mdpi/ic_launcher.png",
+            # Round launcher icon
+            "#{project_root}/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png",
+            "#{project_root}/android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png"
+          ]
+        end
+
+        # Also check common shared icon locations
+        shared_patterns = [
+          "#{project_root}/assets/icon/app_icon.png",
+          "#{project_root}/assets/icons/app_icon.png",
+          "#{project_root}/assets/icon.png",
+          "#{project_root}/assets/app_icon.png",
+          "#{project_root}/assets/launcher_icon.png"
+        ]
+
+        all_patterns = icon_patterns + shared_patterns
+
+        all_patterns.each do |pattern|
+          files = Dir.glob(pattern)
+          if files.any?
+            # Get the largest file (usually best quality)
+            found = files.max_by { |f| File.size(f) }
+            UI.success("   Found app icon: #{found}")
+            return found
+          end
+        end
+
+        UI.warning("⚠️ No app icon found for #{platform}")
+        nil
+      end
+
       def self.generate_qr_png(url, output_path)
         qrcode = RQRCode::QRCode.new(url)
         png = qrcode.as_png(
@@ -272,6 +363,67 @@ module Fastlane
         nil
       end
 
+      def self.send_telegram_media_group(token, chat_id, icon_path, qr_path, caption)
+        telegram_api = ENV['TELEGRAM_API_URL']
+
+        UI.message("📡 Telegram API URL: #{telegram_api || '(NOT SET)'}")
+
+        unless telegram_api && !telegram_api.empty?
+          UI.error("❌ TELEGRAM_API_URL is not set!")
+          return nil
+        end
+
+        # Validate both files exist
+        [icon_path, qr_path].each do |path|
+          unless File.exist?(path) && File.readable?(path)
+            UI.error("❌ File does not exist or not readable: #{path}")
+            return nil
+          end
+          if File.size(path) == 0
+            UI.error("❌ File is empty: #{path}")
+            return nil
+          end
+        end
+
+        url = "#{telegram_api}/bot#{token}/sendMediaGroup"
+
+        # Build media array JSON - icon first with caption, then QR
+        media = [
+          { type: "photo", media: "attach://icon", caption: caption },
+          { type: "photo", media: "attach://qr" }
+        ].to_json
+
+        escaped_media = media.gsub("'", "'\\''")
+
+        cmd = "curl -s -X POST '#{url}' " \
+              "--form-string 'chat_id=#{chat_id}' " \
+              "--form-string 'media=#{escaped_media}' " \
+              "-F 'icon=@#{icon_path};type=image/png' " \
+              "-F 'qr=@#{qr_path};type=image/png'"
+
+        response_body = `#{cmd} 2>&1`
+        exit_code = $?.exitstatus
+
+        UI.message("📡 Curl exit code: #{exit_code}")
+
+        response_json = JSON.parse(response_body) rescue {}
+
+        if response_json['ok']
+          UI.success("📡 Telegram media group sent successfully!")
+          return OpenStruct.new(code: 200, body: response_body)
+        else
+          UI.error("❌ Telegram API returned error: #{response_body}")
+          # Fallback to sending just QR code if media group fails
+          UI.message("📷 Falling back to sending QR code only...")
+          return send_telegram_photo(token, chat_id, qr_path, caption)
+        end
+      rescue => e
+        UI.error("❌ Failed to send Telegram media group: #{e.message}")
+        # Fallback to sending just QR code
+        UI.message("📷 Falling back to sending QR code only...")
+        send_telegram_photo(token, chat_id, qr_path, caption)
+      end
+
       #####################################################
       # @!group Documentation
       #####################################################
@@ -314,6 +466,21 @@ module Fastlane
             description: "Path to APK/IPA file (optional, auto-discovered if not provided)",
             optional: true,
             type: String
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :icon_path,
+            env_name: "APP_DISTRIBUTION_ICON_PATH",
+            description: "Path to app icon PNG file (optional, auto-discovered from Flutter project if not provided)",
+            optional: true,
+            type: String
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :send_icon,
+            env_name: "APP_DISTRIBUTION_SEND_ICON",
+            description: "Whether to send app icon along with QR code (default: true)",
+            optional: true,
+            default_value: true,
+            type: Boolean
           ),
           FastlaneCore::ConfigItem.new(
             key: :server_url,

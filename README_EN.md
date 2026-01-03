@@ -101,12 +101,12 @@ app_distribution(
 
 Configure these environment variables in your CI/CD:
 
-| Variable              | Description                           | Required |
-| --------------------- | ------------------------------------- | -------- |
-| `TELEGRAM_BOT_TOKEN`  | Telegram Bot token                    | ✅       |
-| `TELEGRAM_API_URL`    | Telegram API URL (supports proxy)     | ✅       |
-| `APP_DIST_SERVER_URL` | Distribution server URL               | ✅       |
-| `APP_DIST_TOKEN`      | Auth token for distribution server    | ✅       |
+| Variable              | Description                        | Required |
+| --------------------- | ---------------------------------- | -------- |
+| `TELEGRAM_BOT_TOKEN`  | Telegram Bot token                 | ✅       |
+| `TELEGRAM_API_URL`    | Telegram API URL (supports proxy)  | ✅       |
+| `APP_DIST_SERVER_URL` | Distribution server URL            | ✅       |
+| `APP_DIST_TOKEN`      | Auth token for distribution server | ✅       |
 
 ### Example setup
 
@@ -124,6 +124,7 @@ If `app_path` is not provided, the plugin will automatically discover build outp
 ### iOS
 
 Plugin searches in priority order:
+
 - `build/ios/ipa/*.ipa`
 - `build/ios/archive/*.ipa`
 - `ios/*.ipa`
@@ -132,6 +133,7 @@ Plugin searches in priority order:
 ### Android
 
 Plugin searches in priority order:
+
 - `build/app/outputs/flutter-apk/app-release.apk`
 - `build/app/outputs/flutter-apk/app-debug.apk`
 - `build/app/outputs/apk/release/*.apk`
@@ -160,6 +162,7 @@ Plugin searches in priority order:
 ### iOS OTA Installation
 
 For iOS, the plugin uses the `itms-services://` protocol for OTA installation:
+
 ```
 itms-services://?action=download-manifest&url={server}/get/{app_id}/app.plist
 ```
@@ -195,10 +198,6 @@ This plugin uses:
 ## 📝 License
 
 MIT License - see [LICENSE](LICENSE) file for details.
-
-## 👤 Author
-
-**Mesoco** - tuananh@pmr.vn
 
 ---
 

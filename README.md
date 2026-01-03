@@ -101,12 +101,12 @@ app_distribution(
 
 Cấu hình các biến môi trường trong CI/CD:
 
-| Biến                  | Mô tả                                | Bắt buộc |
-| --------------------- | ------------------------------------ | -------- |
-| `TELEGRAM_BOT_TOKEN`  | Token của Telegram Bot               | ✅       |
-| `TELEGRAM_API_URL`    | URL Telegram API (hỗ trợ proxy)      | ✅       |
-| `APP_DIST_SERVER_URL` | URL của distribution server          | ✅       |
-| `APP_DIST_TOKEN`      | Token xác thực cho distribution server | ✅     |
+| Biến                  | Mô tả                                  | Bắt buộc |
+| --------------------- | -------------------------------------- | -------- |
+| `TELEGRAM_BOT_TOKEN`  | Token của Telegram Bot                 | ✅       |
+| `TELEGRAM_API_URL`    | URL Telegram API (hỗ trợ proxy)        | ✅       |
+| `APP_DIST_SERVER_URL` | URL của distribution server            | ✅       |
+| `APP_DIST_TOKEN`      | Token xác thực cho distribution server | ✅       |
 
 ### Ví dụ thiết lập
 
@@ -124,6 +124,7 @@ Nếu `app_path` không được cung cấp, plugin sẽ tự động tìm file 
 ### iOS
 
 Plugin tìm kiếm theo thứ tự ưu tiên:
+
 - `build/ios/ipa/*.ipa`
 - `build/ios/archive/*.ipa`
 - `ios/*.ipa`
@@ -132,6 +133,7 @@ Plugin tìm kiếm theo thứ tự ưu tiên:
 ### Android
 
 Plugin tìm kiếm theo thứ tự ưu tiên:
+
 - `build/app/outputs/flutter-apk/app-release.apk`
 - `build/app/outputs/flutter-apk/app-debug.apk`
 - `build/app/outputs/apk/release/*.apk`
@@ -160,6 +162,7 @@ Plugin tìm kiếm theo thứ tự ưu tiên:
 ### iOS OTA Installation
 
 Đối với iOS, plugin sử dụng protocol `itms-services://` để cài đặt OTA:
+
 ```
 itms-services://?action=download-manifest&url={server}/get/{app_id}/app.plist
 ```
@@ -195,10 +198,6 @@ Plugin này sử dụng:
 ## 📝 License
 
 MIT License - xem file [LICENSE](LICENSE) để biết thêm chi tiết.
-
-## 👤 Tác giả
-
-**Mesoco** - tuananh@pmr.vn
 
 ---
 
