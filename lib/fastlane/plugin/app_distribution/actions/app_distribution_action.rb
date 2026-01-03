@@ -198,8 +198,7 @@ module Fastlane
           ]
         else
           patterns = [
-            "#{project_root}/build/app/outputs/flutter-apk/app-release.apk",
-            "#{project_root}/build/app/outputs/flutter-apk/app-debug.apk",
+            "#{project_root}/build/app/outputs/flutter-apk/*.apk",
             "#{project_root}/build/app/outputs/apk/release/*.apk",
             "#{project_root}/build/app/outputs/apk/debug/*.apk",
             "#{project_root}/*.apk"
